@@ -37,6 +37,22 @@ check_sys(){
 check_installed_status(){
 	[[ ! -e ${caddy_file} ]] && echo -e "${Error_font_prefix}[错误]${Font_suffix} Caddy 没有安装，请检查 !" && exit 1
 }
+check_new_ver(){
+	echo -e "${Info} 请输入 caddy 版本号，格式如：[ 1.34.0 ]，获取地址：[ https://github.com/caddyserver/caddy/releases ]"
+	read -e -p "默认回车自动获取最新版本号:" caddy_new_ver
+	if [[ -z ${caddy_new_ver} ]]; then
+		caddy_new_ver=$(wget --no-check-certificate -qO- https://api.github.com/repos/caddyserver/caddy/releases | grep -o '"tag_name": ".*"' |head -n 1| sed 's/"//g;s/v//g' | sed 's/tag_name: //g')
+		if [[ -z ${caddy_new_ver} ]]; then
+			echo -e "${Error} caddy 最新版本获取失败，请手动获取最新版本号[ https://github.com/caddyserver/caddy/releases ]"
+			read -e -p "请输入版本号 [ 格式如 1.34.0 ] :" caddy_new_ver
+			[[ -z "${caddy_new_ver}" ]] && echo "取消..." && exit 1
+		else
+			echo -e "${Info} 检测到 caddy 最新版本为 [ ${caddy_new_ver} ]"
+		fi
+	else
+		echo -e "${Info} 即将准备下载 caddy 版本为 [ ${caddy_new_ver} ]"
+	fi
+}
 Download_caddy(){
 	[[ ! -e ${file} ]] && mkdir "${file}"
 	cd "${file}"
@@ -44,18 +60,9 @@ Download_caddy(){
 	[[ ! -z ${PID} ]] && kill -9 ${PID}
 	[[ -e "caddy_linux*.tar.gz" ]] && rm -rf "caddy_linux*.tar.gz"
 	
-	if [[ ! -z ${extension} ]]; then
-		extension_all="?plugins=${extension}&license=personal"
-	else
-		extension_all="?license=personal"
-	fi
 	
 	if [[ ${bit} == "x86_64" ]]; then
-		wget --no-check-certificate -O "caddy_linux.tar.gz" "https://caddyserver.com/download/linux/amd64${extension_all}"
-	elif [[ ${bit} == "i386" || ${bit} == "i686" ]]; then
-		wget --no-check-certificate -O "caddy_linux.tar.gz" "https://caddyserver.com/download/linux/386${extension_all}"
-	elif [[ ${bit} == "armv7l" ]]; then
-		wget --no-check-certificate -O "caddy_linux.tar.gz" "https://caddyserver.com/download/linux/arm7${extension_all}"
+		wget --no-check-certificate -O "caddy_linux.tar.gz" "https://github.com/caddyserver/caddy/releases/download/v${caddy_new_ver}/caddy_${caddy_new_ver}_linux_amd64.tar.gz"
 	else
 		echo -e "${Error_font_prefix}[错误]${Font_suffix} 不支持 [${bit}] ! 请向本站反馈[]中的名称，我会看看是否可以添加支持。" && exit 1
 	fi
@@ -71,14 +78,14 @@ Download_caddy(){
 }
 Service_caddy(){
 	if [[ ${release} = "centos" ]]; then
-		if ! wget --no-check-certificate https://raw.githubusercontent.com/ToyoDAdoubi/doubi/master/service/caddy_centos -O /etc/init.d/caddy; then
+		if ! wget --no-check-certificate https://raw.githubusercontent.com/ymqn180/doubi/master/service/caddy_centos -O /etc/init.d/caddy; then
 			echo -e "${Error_font_prefix}[错误]${Font_suffix} Caddy服务 管理脚本下载失败 !" && exit 1
 		fi
 		chmod +x /etc/init.d/caddy
 		chkconfig --add caddy
 		chkconfig caddy on
 	else
-		if ! wget --no-check-certificate https://raw.githubusercontent.com/ToyoDAdoubi/doubi/master/service/caddy_debian -O /etc/init.d/caddy; then
+		if ! wget --no-check-certificate https://raw.githubusercontent.com/ymqn180/doubi/master/service/caddy_debian -O /etc/init.d/caddy; then
 			echo -e "${Error_font_prefix}[错误]${Font_suffix} Caddy服务 管理脚本下载失败 !" && exit 1
 		fi
 		chmod +x /etc/init.d/caddy
@@ -95,6 +102,7 @@ install_caddy(){
 			echo && echo "已取消..." && exit 1
 		fi
 	fi
+	check_new_ver
 	Download_caddy
 	Service_caddy
 	echo && echo -e " Caddy 使用命令：${caddy_conf_file}
